@@ -178,3 +178,63 @@ contract apex {
         Claimed,
         Settled,
         Voided
+    }
+
+    struct Policy {
+        address holder;
+        bytes32 laneId;
+        uint256 coverWei;
+        uint256 premiumWei;
+        uint64 startAt;
+        uint64 endAt;
+        uint64 boundAt;
+        PolicyState state;
+        bytes32 quoteId;
+        uint32 nonce;
+    }
+    mapping(bytes32 => Policy) public policy;
+
+    // Claims and attestations
+    enum ClaimState {
+        Null,
+        Filed,
+        Attested,
+        Paid,
+        Voided
+    }
+
+    struct Claim {
+        bytes32 policyId;
+        address holder;
+        uint64 filedAt;
+        bytes32 lossRef;
+        ClaimState state;
+        uint256 payoutWei;
+        bytes32 verdictHash;
+        uint64 attestedAt;
+    }
+    mapping(bytes32 => Claim) public claim;
+
+    mapping(address => uint256) public oracleNonce;
+
+    /*//////////////////////////////////////////////////////////////
+                               CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor() {
+        // bootstrap roles from deployer (mainnet-safe default)
+        _governor.current = msg.sender;
+        _guardian.current = msg.sender;
+        _actuary.current = msg.sender;
+
+        treasury = msg.sender;
+        oracle = msg.sender;
+
+        genesisEpoch = uint64(block.timestamp);
+        genesisTag = keccak256(abi.encodePacked(APEX_DOMAIN_TAG, msg.sender, address(this), block.chainid, block.prevrandao));
+        domainSeparator = _computeDomainSeparator(genesisTag);
+
+        emit APEX_Initialized(msg.sender, genesisEpoch, genesisTag);
+    }
+
+    /*//////////////////////////////////////////////////////////////
