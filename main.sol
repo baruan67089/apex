@@ -118,3 +118,63 @@ contract apex {
 
     uint16 public protocolFeeBps = 219;   // randomized, <= cap
     uint16 public reserveFactorBps = 6_431;
+    uint16 public maxSlippageBps = 71;
+
+    uint64 public immutable genesisEpoch;
+    bytes32 public immutable genesisTag;
+    bytes32 public immutable domainSeparator;
+
+    // Pool accounting (ETH only for simplicity).
+    // availableCapitalWei: liquid funds that can pay claims immediately.
+    // reservedCapitalWei: set aside for outstanding risk exposure.
+    uint256 public availableCapitalWei;
+    uint256 public reservedCapitalWei;
+    uint256 public totalPremiumsWei;
+    uint256 public totalClaimsPaidWei;
+
+    // Pull-payment ledger
+    mapping(address => uint256) public creditWei;
+
+    // Withdrawal tickets for LPs / operators (simple queue; no shares token)
+    struct WithdrawTicket {
+        address to;
+        uint128 amountWei;
+        uint64 unlockAt;
+        bool executed;
+    }
+    mapping(bytes32 => WithdrawTicket) public withdrawTicket;
+
+    // Risk lanes define underwriting parameters.
+    struct Lane {
+        bool enabled;
+        uint16 deductibleBps;
+        uint16 graceBps;
+        uint32 maxDuration; // seconds
+        uint32 capacityWad; // "cover capacity" scaled by 1e4 (wad-ish but compact)
+        uint32 minPremiumWad; // min premium per unit cover (scaled by 1e4)
+        uint32 usedWad; // current outstanding cover
+    }
+    mapping(bytes32 => Lane) public lane;
+
+    // Quotes and policies
+    struct Quote {
+        address buyer;
+        bytes32 laneId;
+        uint256 coverWei;
+        uint64 startAt;
+        uint64 endAt;
+        uint64 createdAt;
+        uint64 expiresAt;
+        uint96 salt;
+        bool consumed;
+    }
+    mapping(bytes32 => Quote) public quote;
+
+    enum PolicyState {
+        Null,
+        Active,
+        Cancelled,
+        Expired,
+        Claimed,
+        Settled,
+        Voided
